@@ -1,0 +1,12 @@
+/frontend
+  ├── public/
+  ├── src/
+  │   ├── components/       # Reusable UI pieces like PostCard, Tag, ReflectButton
+  │   ├── pages/            # Home, PostStream, NewThought
+  │   ├── hooks/            # Custom hooks (useStream, useTags)
+  │   ├── utils/            # Helpful nonsense
+  │   ├── assets/           # Tea-themed SVGs probably
+  │   └── App.tsx          # Root component
+  ├── tailwind.config.js
+  ├── index.html
+  └── package.json
