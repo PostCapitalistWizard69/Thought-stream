@@ -1,0 +1,204 @@
+// File: backend/index.js
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const sqlite3 = require("sqlite3").verbose();
+const bodyParser = require("body-parser");
+const path = require("path");
+const morgan = require("morgan");
+const sanitizeHtml = require("sanitize-html");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger.json");
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, "thoughtstream.db");
+
+const db = new sqlite3.Database(DB_PATH);
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(bodyParser.json());
+app.use(morgan("dev"));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 100,
+  message: "Too many requests from this IP, please try again later."
+});
+app.use(limiter);
+
+// Swagger API docs
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Initialize database
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS thoughts (
+      id TEXT PRIMARY KEY,
+      author TEXT,
+      content TEXT,
+      tags TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+});
+
+// Get paginated thoughts
+app.get("/thoughts", (req, res, next) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 5;
+  const offset = (page - 1) * pageSize;
+
+  db.all(
+    `SELECT * FROM thoughts ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [pageSize, offset],
+    (err, rows) => {
+      if (err) return next(err);
+      res.json(rows.map(row => ({ ...row, tags: JSON.parse(row.tags) })));
+    }
+  );
+});
+
+// Post a new thought
+app.post("/thoughts", (req, res, next) => {
+  const { id, author = "anonymous", content, tags = [] } = req.body;
+
+  // Validation
+  if (!content || typeof content !== "string" || !content.trim()) {
+    return res.status(400).json({ error: "Content is required and must be a non-empty string." });
+  }
+  if (content.length > 1000) {
+    return res.status(422).json({ error: "Content must be under 1000 characters." });
+  }
+  if (author.length > 50) {
+    return res.status(422).json({ error: "Author name must be under 50 characters." });
+  }
+  if (!Array.isArray(tags) || tags.some(tag => typeof tag !== "string" || !tag.trim())) {
+    return res.status(422).json({ error: "Tags must be a non-empty array of non-empty strings." });
+  }
+
+  // Sanitization
+  const sanitizedContent = sanitizeHtml(content, { allowedTags: [], allowedAttributes: {} });
+  const sanitizedAuthor = sanitizeHtml(author, { allowedTags: [], allowedAttributes: {} });
+  const sanitizedTags = tags.map(tag => sanitizeHtml(tag.trim(), { allowedTags: [], allowedAttributes: {} }));
+
+  db.run(
+    `INSERT INTO thoughts (id, author, content, tags) VALUES (?, ?, ?, ?)`,
+    [id, sanitizedAuthor, sanitizedContent, JSON.stringify(sanitizedTags)],
+    function (err) {
+      if (err) {
+        if (err.code === "SQLITE_CONSTRAINT") {
+          return res.status(409).json({ error: "Thought with this ID already exists." });
+        }
+        return next(err);
+      }
+      res.status(201).json({ id });
+    }
+  );
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("[ERROR]", err.message);
+  res.status(500).json({ error: "An unexpected error occurred." });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`ThoughtStream backend listening on port ${PORT}`);
+});
+
+// File: backend/package.json
+{
+  "name": "thoughtstream-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.7.0",
+    "helmet": "^7.0.0",
+    "morgan": "^1.10.0",
+    "sanitize-html": "^2.11.0",
+    "sqlite3": "^5.1.6",
+    "swagger-ui-express": "^5.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  }
+}
+
+// File: backend/.gitignore
+node_modules/
+thoughtstream.db
+.env
+
+// File: backend/.env.example
+PORT=3001
+DB_PATH=./thoughtstream.db
+
+// File: backend/swagger.json
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "ThoughtStream API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/thoughts": {
+      "get": {
+        "summary": "Get paginated thoughts",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "default": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of thoughts"
+          }
+        }
+      },
+      "post": {
+        "summary": "Post a new thought",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "author": { "type": "string" },
+                  "content": { "type": "string" },
+                  "tags": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["id", "content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Thought created" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    }
+  }
+}
