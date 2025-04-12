@@ -1,17 +1,150 @@
-/frontend
-  ├── public/
-  ├── src/
-  │   ├── components/       # Reusable UI pieces like PostCard, Tag, ReflectButton
-  │   ├── pages/            # Home, PostStream, NewThought
-  │   ├── hooks/            # Custom hooks (useStream, useTags)
-  │   ├── utils/            # Helpful nonsense
-  │   ├── assets/           # Tea-themed SVGs probably
-  │   └── App.tsx          # Root component
-  ├── tailwind.config.js
-  ├── index.html
-  └── package.json
-npm create vite@latest frontend -- --template react
-cd frontend
-npm install
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
+// File: src/main.jsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+
+// File: src/App.jsx
+import React from "react";
+import Home from "./pages/Home.jsx";
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-zinc-900 p-4 text-white">
+      <h1 className="text-3xl font-bold mb-6">ThoughtStream</h1>
+      <Home />
+    </div>
+  );
+}
+
+
+// File: src/pages/Home.jsx
+import React, { useState } from "react";
+import ThoughtCard from "../components/ThoughtCard.jsx";
+import NewThoughtForm from "../components/NewThoughtForm.jsx";
+
+export default function Home() {
+  const [thoughts, setThoughts] = useState([
+    {
+      author: "stoicAnarchist",
+      content: "Voluntary cooperation isn’t optional—it’s inevitable.",
+      tags: ["mutual-aid", "anarchism", "tea"]
+    },
+    {
+      author: "existential_scone",
+      content: "I just want a platform where I’m not sold face cream by a 19-year-old millionaire.",
+      tags: ["capitalism", "social-media", "cringe"]
+    }
+  ]);
+
+  const addThought = (newThought) => {
+    setThoughts([newThought, ...thoughts]);
+  };
+
+  return (
+    <div>
+      <NewThoughtForm onSubmit={addThought} />
+      <div className="mt-6">
+        {thoughts.map((thought, index) => (
+          <ThoughtCard
+            key={index}
+            author={thought.author}
+            content={thought.content}
+            tags={thought.tags}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// File: src/components/ThoughtCard.jsx
+import React from "react";
+
+export default function ThoughtCard({ author, content, tags }) {
+  return (
+    <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-md mb-4">
+      <p className="text-sm text-zinc-400">@{author}</p>
+      <p className="text-lg mt-2">{content}</p>
+      <div className="flex gap-2 mt-3 flex-wrap">
+        {tags.map((tag, i) => (
+          <span key={i} className="text-xs bg-zinc-700 px-2 py-1 rounded-full">
+            #{tag}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// File: src/components/NewThoughtForm.jsx
+import React, { useState } from "react";
+
+export default function NewThoughtForm({ onSubmit }) {
+  const [author, setAuthor] = useState("");
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+
+    const newThought = {
+      author: author || "anonymous",
+      content: content.trim(),
+      tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean)
+    };
+
+    onSubmit(newThought);
+    setAuthor("");
+    setContent("");
+    setTags("");
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-zinc-800 p-4 rounded-xl shadow-md">
+      <input
+        type="text"
+        placeholder="Your name (optional)"
+        value={author}
+        onChange={(e) => setAuthor(e.target.value)}
+        className="w-full mb-2 p-2 rounded bg-zinc-700 text-white placeholder-zinc-400"
+      />
+      <textarea
+        placeholder="What’s on your mind?"
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        className="w-full mb-2 p-2 rounded bg-zinc-700 text-white placeholder-zinc-400"
+        rows="3"
+      />
+      <input
+        type="text"
+        placeholder="Tags (comma separated)"
+        value={tags}
+        onChange={(e) => setTags(e.target.value)}
+        className="w-full mb-2 p-2 rounded bg-zinc-700 text-white placeholder-zinc-400"
+      />
+      <button
+        type="submit"
+        className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded text-white font-semibold"
+      >
+        Post Thought
+      </button>
+    </form>
+  );
+}
+
+
+// File: src/index.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

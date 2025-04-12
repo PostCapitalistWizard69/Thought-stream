@@ -1,0 +1,219 @@
+// File: src/main.jsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+
+// File: src/App.jsx
+import React from "react";
+import Home from "./pages/Home.jsx";
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-zinc-900 p-4 text-white">
+      <h1 className="text-3xl font-bold mb-6 text-center sm:text-left">ThoughtStream</h1>
+      <Home />
+    </div>
+  );
+}
+
+
+// File: src/pages/Home.jsx
+import React, { useState } from "react";
+import ThoughtCard from "../components/ThoughtCard.jsx";
+import NewThoughtForm from "../components/NewThoughtForm.jsx";
+import { v4 as uuidv4 } from "uuid";
+
+const PAGE_SIZE = 5;
+
+export default function Home() {
+  const [thoughts, setThoughts] = useState([
+    {
+      id: uuidv4(),
+      author: "stoicAnarchist",
+      content: "Voluntary cooperation isn’t optional—it’s inevitable.",
+      tags: ["mutual-aid", "anarchism", "tea"]
+    },
+    {
+      id: uuidv4(),
+      author: "existential_scone",
+      content: "I just want a platform where I’m not sold face cream by a 19-year-old millionaire.",
+      tags: ["capitalism", "social-media", "cringe"]
+    }
+  ]);
+
+  const [page, setPage] = useState(1);
+
+  const addThought = (newThought) => {
+    const withId = { ...newThought, id: uuidv4() };
+    setThoughts([withId, ...thoughts]);
+    setPage(1);
+  };
+
+  const paginatedThoughts = thoughts.slice(0, PAGE_SIZE * page);
+  const hasMore = thoughts.length > PAGE_SIZE * page;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <NewThoughtForm onSubmit={addThought} />
+      <div className="mt-6">
+        {paginatedThoughts.map((thought) => (
+          <ThoughtCard
+            key={thought.id}
+            author={thought.author}
+            content={thought.content}
+            tags={thought.tags}
+          />
+        ))}
+        {hasMore && (
+          <div className="text-center mt-4">
+            <button
+              onClick={() => setPage(page + 1)}
+              className="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded text-white font-semibold"
+              aria-label="Load more thoughts"
+            >
+              Load More
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// File: src/components/ThoughtCard.jsx
+import React, { useState } from "react";
+
+export default function ThoughtCard({ author, content, tags }) {
+  const isLong = content.length > 280;
+  const [expanded, setExpanded] = useState(false);
+
+  const displayedContent = isLong && !expanded ? content.slice(0, 280) + "..." : content;
+
+  return (
+    <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-md mb-4 transition duration-300 hover:shadow-lg">
+      <p className="text-sm text-zinc-300">@{author}</p>
+      <p className="text-lg mt-2 text-zinc-100 break-words whitespace-pre-wrap">{displayedContent}</p>
+      {isLong && (
+        <div className="mt-2">
+          {!expanded && (
+            <p className="text-xs text-yellow-400 italic">Warning: Long-form thinking detected. Zenial attention span not guaranteed.</p>
+          )}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            title={expanded ? "Collapse to reduce cognitive load" : "Expand for maximum ideological enlightenment"}
+            className="mt-1 text-teal-400 hover:text-teal-300 text-sm focus:outline-none underline underline-offset-2"
+          >
+            {expanded ? "Collapse" : "Read More"}
+          </button>
+        </div>
+      )}
+      <div className="flex gap-2 mt-3 flex-wrap">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="text-xs bg-zinc-600 px-2 py-1 rounded-full hover:bg-zinc-500 transition-colors duration-200"
+          >
+            #{tag}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// File: src/components/NewThoughtForm.jsx
+import React, { useState } from "react";
+
+const MAX_CONTENT_LENGTH = 1000;
+
+export default function NewThoughtForm({ onSubmit }) {
+  const [author, setAuthor] = useState("");
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!content.trim()) {
+      setError("Please enter something worth streaming.");
+      return;
+    }
+    if (content.length > MAX_CONTENT_LENGTH) {
+      setError("Thought too long. Please limit to 1000 characters unless you're writing a novella.");
+      return;
+    }
+
+    const newThought = {
+      author: author || "anonymous",
+      content: content.trim(),
+      tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean)
+    };
+
+    onSubmit(newThought);
+    setAuthor("");
+    setContent("");
+    setTags("");
+    setError("");
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="bg-zinc-800 p-4 rounded-xl shadow-md transition duration-300 focus-within:shadow-lg"
+      aria-label="Post a new thought"
+    >
+      <input
+        type="text"
+        aria-label="Author name"
+        placeholder="Your name (or a cool alias)"
+        value={author}
+        onChange={(e) => setAuthor(e.target.value)}
+        className="w-full mb-2 p-2 rounded bg-zinc-700 text-white placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+      />
+      <textarea
+        aria-label="Thought content"
+        placeholder="Drop a thought. No pressure, but make it poetic."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        className="w-full mb-2 p-2 rounded bg-zinc-700 text-white placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        rows="5"
+      />
+      <input
+        type="text"
+        aria-label="Tags for your thought"
+        placeholder="Tags (comma separated, please no hashtags)"
+        value={tags}
+        onChange={(e) => setTags(e.target.value)}
+        className="w-full mb-2 p-2 rounded bg-zinc-700 text-white placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+      />
+      {error && (
+        <p className="text-red-400 text-sm mb-2" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        type="submit"
+        aria-label="Submit new thought"
+        className="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded text-white font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400"
+      >
+        Post Thought
+      </button>
+    </form>
+  );
+}
+
+
+// File: src/index.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
