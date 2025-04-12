@@ -1,0 +1,9 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: "class", // Because darkness is the default state of modern thought
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
