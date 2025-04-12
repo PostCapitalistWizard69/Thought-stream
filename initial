@@ -1,0 +1,84 @@
+// File: backend/index.js
+const express = require("express");
+const cors = require("cors");
+const sqlite3 = require("sqlite3").verbose();
+const bodyParser = require("body-parser");
+const path = require("path");
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+const db = new sqlite3.Database(path.join(__dirname, "thoughtstream.db"));
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// Initialize database
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS thoughts (
+      id TEXT PRIMARY KEY,
+      author TEXT,
+      content TEXT,
+      tags TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+});
+
+// Get paginated thoughts
+app.get("/thoughts", (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 5;
+  const offset = (page - 1) * pageSize;
+
+  db.all(
+    `SELECT * FROM thoughts ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [pageSize, offset],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows.map(row => ({ ...row, tags: JSON.parse(row.tags) })));
+    }
+  );
+});
+
+// Post a new thought
+app.post("/thoughts", (req, res) => {
+  const { id, author, content, tags } = req.body;
+  if (!content) return res.status(400).json({ error: "Content is required" });
+
+  db.run(
+    `INSERT INTO thoughts (id, author, content, tags) VALUES (?, ?, ?, ?)`,
+    [id, author, content, JSON.stringify(tags)],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id });
+    }
+  );
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`ThoughtStream backend listening on port ${PORT}`);
+});
+
+// File: backend/package.json
+{
+  "name": "thoughtstream-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6"
+  }
+}
+
+// File: backend/.gitignore
+node_modules/
+thoughtstream.db
