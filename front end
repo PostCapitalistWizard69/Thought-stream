@@ -10,3 +10,8 @@
   ├── tailwind.config.js
   ├── index.html
   └── package.json
+npm create vite@latest frontend -- --template react
+cd frontend
+npm install
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
