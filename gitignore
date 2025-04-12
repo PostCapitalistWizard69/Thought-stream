@@ -1,0 +1,38 @@
+git commit -m "Add .gitignore to prevent accidental data leakage and existential dread"
+# ---- Node/React Frontend ----
+frontend/node_modules/
+frontend/build/
+frontend/.env
+frontend/.parcel-cache/
+frontend/dist/
+
+# ---- Python/Flask Backend ----
+backend/__pycache__/
+backend/*.py[cod]
+backend/instance/
+backend/venv/
+backend/env/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.coverage
+backend/coverage.xml
+
+# ---- General ----
+*.log
+*.sqlite3
+*.db
+*.pyc
+*.pyo
+.env
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- VSCode ----
+.vscode/
+
+# Remove redundant macOS and Windows sections since they are covered in General
