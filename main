@@ -1,0 +1,56 @@
+// File: backend/index.js (UPDATED SECTION ONLY)
+
+// Update DB schema to include userId
+
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS thoughts (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      author TEXT,
+      content TEXT,
+      tags TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+});
+
+// Updated POST /thoughts handler with userId validation
+app.post("/thoughts", (req, res, next) => {
+  const { id, userId, author = "anonymous", content, tags = [] } = req.body;
+
+  if (!userId || typeof userId !== "string" || !userId.trim()) {
+    return res.status(422).json({ error: "User ID is required and must be a non-empty string." });
+  }
+  if (!content || typeof content !== "string" || !content.trim()) {
+    return res.status(400).json({ error: "Content is required and must be a non-empty string." });
+  }
+  if (content.length > 1000) {
+    return res.status(422).json({ error: "Content must be under 1000 characters." });
+  }
+  if (author.length > 50) {
+    return res.status(422).json({ error: "Author name must be under 50 characters." });
+  }
+  if (!Array.isArray(tags) || tags.some(tag => typeof tag !== "string" || !tag.trim())) {
+    return res.status(422).json({ error: "Tags must be a non-empty array of non-empty strings." });
+  }
+
+  const sanitizedContent = sanitizeHtml(content, { allowedTags: [], allowedAttributes: {} });
+  const sanitizedAuthor = sanitizeHtml(author, { allowedTags: [], allowedAttributes: {} });
+  const sanitizedTags = tags.map(tag => sanitizeHtml(tag.trim(), { allowedTags: [], allowedAttributes: {} }));
+  const sanitizedUserId = sanitizeHtml(userId.trim(), { allowedTags: [], allowedAttributes: {} });
+
+  db.run(
+    `INSERT INTO thoughts (id, userId, author, content, tags) VALUES (?, ?, ?, ?, ?)`,
+    [id, sanitizedUserId, sanitizedAuthor, sanitizedContent, JSON.stringify(sanitizedTags)],
+    function (err) {
+      if (err) {
+        if (err.code === "SQLITE_CONSTRAINT") {
+          return res.status(409).json({ error: "Thought with this ID already exists." });
+        }
+        return next(err);
+      }
+      res.status(201).json({ id });
+    }
+  );
+});
